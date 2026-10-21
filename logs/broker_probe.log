@@ -1,0 +1,100 @@
+2026-10-09 00:35:25 (UTC 03:35:25)  probe started: mqtt.mattediworks.com:8883 every 10s, slow>1s, CA from creds.h
+2026-10-09 00:36:13 (UTC 03:36:13)  probe started: mqtt.mattediworks.com:8883 every 10s, slow>1s, CA from creds.h
+2026-10-09 01:01:49 (UTC 04:01:49)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-09 01:02:18 (UTC 04:02:18)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-09 01:32:06 (UTC 04:32:06)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-09 07:49:29 (UTC 10:49:29)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-09 07:49:30 (UTC 10:49:30)  [hold] SESSION LOST (ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host) session age 22643s, 332 ping(s) answered
+2026-10-09 07:49:35 (UTC 10:49:35)  [hold] session re-established after 1 attempt(s), 6s without one (connect+login 0.71s)
+2026-10-09 07:49:39 (UTC 10:49:39)  [connect] RECOVERED after 1 failed probe(s), 10s down (tcp 0.06s, tls 0.05s)
+2026-10-09 09:08:13 (UTC 12:08:13)  [hold] SLOW ping 2.46s (session age 4717s, ping #934)
+2026-10-09 12:58:40 (UTC 15:58:40)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-09 13:03:12 (UTC 16:03:12)  [hold] SESSION LOST (TimeoutError: no PINGRESP within 10s) session age 18816s, 3661 ping(s) answered
+2026-10-09 13:03:13 (UTC 16:03:13)  [connect] RECOVERED after 1 failed probe(s), 273s down (tcp 0.07s, tls 0.07s)
+2026-10-09 13:03:17 (UTC 16:03:17)  [hold] session re-established after 1 attempt(s), 5s without one (connect+login 0.43s)
+2026-10-09 18:50:02 (UTC 21:50:02)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-09 23:39:47 (UTC 02:39:47)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-09 23:39:47 (UTC 02:39:47)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-09 23:39:47 (UTC 02:39:47)  [hold] SESSION LOST (gaierror: [Errno 11001] getaddrinfo failed) while connecting
+2026-10-09 23:39:57 (UTC 02:39:57)  [connect] FAIL #2: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-09 23:41:14 (UTC 02:41:14)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', slow>1s, CA from creds.h
+2026-10-10 00:06:06 (UTC 03:06:06)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', ICMP every 1s to nightmare-gateway.local, slow>1s, CA from creds.h
+2026-10-10 00:07:47 (UTC 03:07:47)  [hold] SESSION LOST (ConnectionResetError: closed by peer) session age 101s, 19 ping(s) answered
+2026-10-10 00:07:49 (UTC 03:07:49)  [connect] SLOW: tls 2.56s (31.97.243.57, TLSv1.3)
+2026-10-10 00:07:52 (UTC 03:07:52)  [hold] session re-established after 1 attempt(s), 5s without one (connect+login 0.31s)
+2026-10-10 00:07:56 (UTC 03:07:56)  [gateway nightmare-gateway.local] SLOW reply 309ms
+2026-10-10 00:08:40 (UTC 03:08:40)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 00:08:42 (UTC 03:08:42)  [gateway nightmare-gateway.local] replying again after 3 missed, 2s without a reply
+2026-10-10 00:08:50 (UTC 03:08:50)  probe started: mqtt.mattediworks.com:8883, connect every 10s, held session pinging every 5s as 'nmnw-gateway', ICMP every 1s to nightmare-gateway.local, slow>1s, CA from creds.h
+2026-10-10 00:14:35 (UTC 03:14:35)  [gateway nightmare-gateway.local] SLOW reply 304ms
+2026-10-10 00:14:36 (UTC 03:14:36)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 00:14:37 (UTC 03:14:37)  [gateway nightmare-gateway.local] replying again after 1 missed, 0s without a reply
+2026-10-10 00:16:44 (UTC 03:16:44)  [gateway nightmare-gateway.local] SLOW reply 302ms
+2026-10-10 00:19:08 (UTC 03:19:08)  [gateway nightmare-gateway.local] SLOW reply 513ms
+2026-10-10 00:20:42 (UTC 03:20:42)  [gateway nightmare-gateway.local] SLOW reply 331ms
+2026-10-10 00:21:17 (UTC 03:21:17)  [gateway nightmare-gateway.local] SLOW reply 349ms
+2026-10-10 00:21:34 (UTC 03:21:34)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 00:21:37 (UTC 03:21:37)  [gateway nightmare-gateway.local] SLOW reply 330ms
+2026-10-10 00:22:22 (UTC 03:22:22)  [gateway nightmare-gateway.local] SLOW reply 305ms
+2026-10-10 00:23:05 (UTC 03:23:05)  [gateway nightmare-gateway.local] SLOW reply 302ms
+2026-10-10 00:24:02 (UTC 03:24:02)  [gateway nightmare-gateway.local] SLOW reply 319ms
+2026-10-10 00:24:10 (UTC 03:24:10)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 00:26:23 (UTC 03:26:23)  [gateway nightmare-gateway.local] SLOW reply 305ms
+2026-10-10 00:26:30 (UTC 03:26:30)  [gateway nightmare-gateway.local] SLOW reply 302ms
+2026-10-10 00:30:33 (UTC 03:30:33)  [gateway nightmare-gateway.local] SLOW reply 310ms
+2026-10-10 00:41:32 (UTC 03:41:32)  [gateway nightmare-gateway.local] SLOW reply 357ms
+2026-10-10 00:54:39 (UTC 03:54:39)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 00:54:40 (UTC 03:54:40)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-10 00:54:41 (UTC 03:54:41)  [gateway nightmare-gateway.local] cannot resolve the name; use the IP from the gateway log
+2026-10-10 00:55:11 (UTC 03:55:11)  [connect] RECOVERED after 1 failed probe(s), 31s down (tcp 0.05s, tls 0.05s)
+2026-10-10 08:19:13 (UTC 11:19:13)  [gateway nightmare-gateway.local] name resolves again: 10.10.3.18
+2026-10-10 08:19:13 (UTC 11:19:13)  [gateway nightmare-gateway.local] replying again after 1 missed, 26674s without a reply
+2026-10-10 08:28:48 (UTC 11:28:48)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 08:39:38 (UTC 11:39:38)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:39:39 (UTC 11:39:39)  [gateway nightmare-gateway.local] replying again after 2 missed, 1s without a reply
+2026-10-10 08:40:11 (UTC 11:40:11)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:40:31 (UTC 11:40:31)  [gateway nightmare-gateway.local] replying again after 21 missed, 20s without a reply
+2026-10-10 08:43:19 (UTC 11:43:19)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:43:21 (UTC 11:43:21)  [gateway nightmare-gateway.local] replying again after 3 missed, 2s without a reply
+2026-10-10 08:43:26 (UTC 11:43:26)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:43:30 (UTC 11:43:30)  [gateway nightmare-gateway.local] replying again after 5 missed, 4s without a reply
+2026-10-10 08:52:36 (UTC 11:52:36)  [gateway nightmare-gateway.local] SLOW reply 311ms
+2026-10-10 08:53:22 (UTC 11:53:22)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:53:25 (UTC 11:53:25)  [gateway nightmare-gateway.local] replying again after 3 missed, 3s without a reply
+2026-10-10 08:58:24 (UTC 11:58:24)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:58:41 (UTC 11:58:41)  [gateway nightmare-gateway.local] replying again after 18 missed, 17s without a reply
+2026-10-10 08:58:57 (UTC 11:58:57)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 08:58:59 (UTC 11:58:59)  [gateway nightmare-gateway.local] replying again after 3 missed, 2s without a reply
+2026-10-10 09:08:29 (UTC 12:08:29)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 09:08:31 (UTC 12:08:31)  [gateway nightmare-gateway.local] replying again after 3 missed, 2s without a reply
+2026-10-10 09:13:24 (UTC 12:13:24)  [gateway nightmare-gateway.local] SLOW reply 302ms
+2026-10-10 09:19:26 (UTC 12:19:26)  [gateway nightmare-gateway.local] SLOW reply 305ms
+2026-10-10 09:31:32 (UTC 12:31:32)  [gateway nightmare-gateway.local] SLOW reply 301ms
+2026-10-10 09:42:59 (UTC 12:42:59)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 09:47:44 (UTC 12:47:44)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 09:48:01 (UTC 12:48:01)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 09:48:49 (UTC 12:48:49)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 09:52:54 (UTC 12:52:54)  [gateway nightmare-gateway.local] SLOW reply 329ms
+2026-10-10 09:52:58 (UTC 12:52:58)  [gateway nightmare-gateway.local] SLOW reply 305ms
+2026-10-10 10:09:00 (UTC 13:09:00)  [gateway nightmare-gateway.local] SLOW reply 431ms
+2026-10-10 10:25:13 (UTC 13:25:13)  [gateway nightmare-gateway.local] SLOW reply 302ms
+2026-10-10 10:42:11 (UTC 13:42:11)  [gateway nightmare-gateway.local] SLOW reply 303ms
+2026-10-10 10:50:52 (UTC 13:50:52)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-10 10:50:52 (UTC 13:50:52)  [gateway nightmare-gateway.local] cannot resolve the name; use the IP from the gateway log
+2026-10-10 10:51:03 (UTC 13:51:03)  [hold] SLOW ping 7.97s (session age 38532s, ping #7627)
+2026-10-10 10:51:07 (UTC 13:51:07)  [gateway nightmare-gateway.local] name resolves again: 10.10.3.18
+2026-10-10 10:51:09 (UTC 13:51:09)  [connect] RECOVERED after 1 failed probe(s), 17s down (tcp 0.05s, tls 0.05s)
+2026-10-10 11:01:38 (UTC 14:01:38)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 11:01:39 (UTC 14:01:39)  [gateway nightmare-gateway.local] replying again after 1 missed, 1s without a reply
+2026-10-10 11:21:54 (UTC 14:21:54)  [gateway nightmare-gateway.local] SLOW reply 346ms
+2026-10-10 11:22:07 (UTC 14:22:07)  [gateway nightmare-gateway.local] SLOW reply 418ms
+2026-10-10 11:25:17 (UTC 14:25:17)  [gateway nightmare-gateway.local] SLOW reply 306ms
+2026-10-10 11:40:58 (UTC 14:40:58)  [gateway nightmare-gateway.local] NO REPLY from 10.10.3.18
+2026-10-10 11:40:59 (UTC 14:40:59)  [connect] FAIL #1: dns failed: [Errno 11001] getaddrinfo failed
+2026-10-10 11:41:00 (UTC 14:41:00)  [gateway nightmare-gateway.local] cannot resolve the name; use the IP from the gateway log
+2026-10-10 12:13:47 (UTC 15:13:47)  [connect] RECOVERED after 1 failed probe(s), 1969s down (tcp 0.05s, tls 0.06s)
+2026-10-10 12:13:50 (UTC 15:13:50)  [hold] SESSION LOST (TimeoutError: no PINGRESP within 10s) session age 43499s, 8220 ping(s) answered
+2026-10-10 12:13:55 (UTC 15:13:55)  [hold] session re-established after 1 attempt(s), 5s without one (connect+login 0.33s)
+2026-10-11 09:53:20 (UTC 12:53:20)  [connect] SLOW: tcp 1.08s (31.97.243.57, TLSv1.3)
+2026-10-11 10:50:01 (UTC 13:50:01)  [connect] SLOW: tcp 1.06s (31.97.243.57, TLSv1.3)
+2026-10-11 12:37:51 (UTC 15:37:51)  [connect] SLOW: tcp 1.06s (31.97.243.57, TLSv1.3)
