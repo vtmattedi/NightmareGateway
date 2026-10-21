@@ -35,7 +35,7 @@ esp_err_t MqttTransport::init() {
     cfg.credentials.client_id=GATEWAY_NAME;
     cfg.session.protocol_ver=MQTT_PROTOCOL_V_5;
     client=esp_mqtt_client_init(&cfg); if(!client) return ESP_FAIL;
-    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client,ESP_EVENT_ANY_ID,handler,nullptr));
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client,static_cast<esp_mqtt_event_id_t>(ESP_EVENT_ANY_ID),handler,nullptr));
     return esp_mqtt_client_start(client);
 }
 

@@ -1,0 +1,3 @@
+[submodule "nightmarenetwork"]
+	path = nightmarenetwork
+	url = https://github.com/vtmattedi/nightmarenetwork

@@ -13,6 +13,7 @@ constexpr const char *MQTT_USERNAME = "";
 constexpr const char *MQTT_PASSWORD = "";
 constexpr const char *MQTT_SUBSCRIPTION = "#";
 
+constexpr uint8_t NM_ESPNOW_CHANNEL = 10;
 constexpr uint8_t NM_ESPNOW_PROTOCOL_VERSION = 1;
 constexpr size_t NM_ESPNOW_MAX_FRAME_BYTES = 230;
 constexpr size_t NM_MAX_TOPIC_BYTES = 192;
@@ -27,3 +28,5 @@ constexpr uint32_t NM_RECENT_MESSAGE_TTL_MS = 10000;
 constexpr uint32_t ROUTER_QUEUE_DEPTH = 12;
 constexpr uint32_t ROUTER_TASK_STACK = 8192;
 constexpr UBaseType_t ROUTER_TASK_PRIORITY = 5;
+constexpr uint32_t CONSOLE_TASK_STACK = 4096;
+constexpr UBaseType_t CONSOLE_TASK_PRIORITY = 5;

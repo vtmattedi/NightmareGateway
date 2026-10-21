@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS
-        "app_main.cpp"
+        "main.cpp"
         "wifi_manager.cpp"
         "mqtt_transport.cpp"
         "espnow_transport.cpp"
@@ -8,6 +8,7 @@ idf_component_register(
         "peer_registry.cpp"
         "fragment_reassembler.cpp"
         "recent_message_cache.cpp"
+        "serial_console.cpp"
     INCLUDE_DIRS "."
-    REQUIRES esp_wifi esp_event esp_netif nvs_flash mqtt
+    REQUIRES esp_wifi esp_event esp_netif nvs_flash mqtt esp_system
 )

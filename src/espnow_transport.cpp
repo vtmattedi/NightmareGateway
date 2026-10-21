@@ -3,8 +3,12 @@
 #include <atomic>
 #include <cstring>
 #include <vector>
+#include "esp_event.h"
+#include "esp_log.h"
+#include "esp_netif.h"
 #include "esp_now.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "fragment_reassembler.h"
 #include "gateway_config.h"
 #include "gateway_router.h"
@@ -43,5 +47,25 @@ bool send_peer(const MacAddress &dst,const GatewayMessage &m){
 }
 }
 
-esp_err_t EspNowTransport::init(){ESP_ERROR_CHECK(esp_now_init()); ESP_ERROR_CHECK(esp_now_register_recv_cb(recv_cb)); return ESP_OK;}
-bool EspNowTransport::sendToAllExcept(const GatewayMessage &m,const MacAddress *excluded){bool ok=true; peers.forEach([&](const MacAddress &p){if(excluded&&p==*excluded)return; if(!send_peer(p,m))ok=false;}); return ok;}
+esp_err_t EspNowTransport::init(){
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t wifiInit=WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&wifiInit));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_channel(NM_ESPNOW_CHANNEL,WIFI_SECOND_CHAN_NONE));
+    ESP_ERROR_CHECK(esp_now_init());
+    ESP_ERROR_CHECK(esp_now_register_recv_cb(recv_cb));
+    return ESP_OK;
+}
+bool EspNowTransport::sendToAllExcept(const GatewayMessage &m,const MacAddress *excluded){bool ok=true; peers.forEach([&](const MacAddress &p,uint32_t){if(excluded&&p==*excluded)return; if(!send_peer(p,m))ok=false;}); return ok;}
+void EspNowTransport::logDevices(){
+    uint32_t now=nowMs(); int count=0;
+    peers.forEach([&](const MacAddress &p,uint32_t lastSeen){
+        ++count;
+        ESP_LOGI("peers","%02X:%02X:%02X:%02X:%02X:%02X last_seen=%lums ago",p.bytes[0],p.bytes[1],p.bytes[2],p.bytes[3],p.bytes[4],p.bytes[5],(unsigned long)(now-lastSeen));
+    });
+    if(!count) ESP_LOGI("peers","no known devices");
+}

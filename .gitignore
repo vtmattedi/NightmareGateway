@@ -3,5 +3,4 @@ sdkconfig
 sdkconfig.old
 .vscode/
 sdkconfig.*
-nightmarenetwork/
 .pio/
