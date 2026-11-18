@@ -23,6 +23,9 @@ esp_err_t ntp_sync_start(uint32_t timeout_ms)
         return err;
     }
 
+    if (timeout_ms == 0)
+        return ESP_OK;
+
     ESP_LOGI(TAG, "Waiting for NTP time sync (%s)...", NM_TIMEZONE);
     err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(timeout_ms));
     if (err != ESP_OK)

@@ -6,15 +6,19 @@
 #include "webServer/webserver.h"
 #include <Core/Logs.h>
 #include <atomic>
+#include "esp_timer.h"
 
 static const char *TAG = "espWifi";
 static EventGroupHandle_t wifi_event_group;
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
-#define WIFI_MAX_RETRY 5
+// Attempts before wifi_init_sta() stops waiting and lets the boot go on. The
+// station keeps trying after that, for as long as the gateway runs.
+#define WIFI_BOOT_ATTEMPTS 5
 
 static int retry_count = 0;
+static esp_timer_handle_t s_retryTimer = nullptr;
 static std::atomic<bool> s_connected{false};
 static std::atomic<bool> s_started{false};
 static std::atomic<int> s_lastReason{0}; // reason of the latest STA_DISCONNECTED, retries included
@@ -54,6 +58,13 @@ static const char *reasonName(int reason)
     }
 }
 
+static void retryTimerCallback(void *)
+{
+    // ESP_ERR_WIFI_CONN (already connecting) and friends are not worth a log:
+    // a failed attempt raises DISCONNECTED again and schedules the next one.
+    esp_wifi_connect();
+}
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {
@@ -70,15 +81,29 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         if (s_connected.exchange(false, std::memory_order_acq_rel))
             LOG("wifi", "wifi disconnected (reason %d: %s)", reason, reasonName(reason));
         web_server::stop();
-        if (retry_count < WIFI_MAX_RETRY)
+        retry_count++;
+        // The router sometimes refuses a station that has just reset for a
+        // while (auth expired / dropped for inactivity, then it accepts the
+        // same credentials), so back off instead of hammering it, and never
+        // give up: a gateway that stays offline until someone power-cycles it
+        // is worse than one that keeps trying.
+        static const uint32_t backoffMs[] = {500, 1000, 2000, 5000, 10000};
+        const size_t step = (size_t)(retry_count - 1) < sizeof(backoffMs) / sizeof(backoffMs[0])
+                                ? (size_t)(retry_count - 1)
+                                : sizeof(backoffMs) / sizeof(backoffMs[0]) - 1;
+        // Every failure for the first few, then one in ten: a router that is
+        // off for an hour must not fill the log.
+        if (retry_count <= WIFI_BOOT_ATTEMPTS || retry_count % 10 == 0)
+            ESP_LOGW(TAG, "Connection to AP failed (reason %d: %s), attempt %d, retrying in %lu ms", reason,
+                     reasonName(reason), retry_count, (unsigned long)backoffMs[step]);
+        if (s_retryTimer != nullptr)
         {
-            esp_wifi_connect();
-            retry_count++;
-            ESP_LOGW(TAG, "Connection to AP failed (reason %d: %s), retry %d/%d", reason, reasonName(reason),
-                     retry_count, WIFI_MAX_RETRY);
+            esp_timer_stop(s_retryTimer); // a manual wifi_connect() may have one pending
+            esp_timer_start_once(s_retryTimer, (uint64_t)backoffMs[step] * 1000);
         }
-        else
+        if (retry_count == WIFI_BOOT_ATTEMPTS)
         {
+            // Lets the boot continue; the retries above carry on regardless.
             xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
             NightmareGateway::mDNS::end();
         }
@@ -162,6 +187,8 @@ esp_err_t wifi_connect(const char *ssid, const char *password)
     // with the new config. When nothing was connected there is no such event.
     const bool wasConnected = wifi_is_connected();
     retry_count = 0;
+    if (s_retryTimer != nullptr)
+        esp_timer_stop(s_retryTimer);
     esp_wifi_disconnect();
     if (!wasConnected)
         esp_wifi_connect();
@@ -179,6 +206,8 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_event_group = xEventGroupCreate();
+    const esp_timer_create_args_t retryArgs = {.callback = retryTimerCallback, .name = "wifi_retry"};
+    ESP_ERROR_CHECK(esp_timer_create(&retryArgs, &s_retryTimer));
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -220,6 +249,7 @@ void wifi_init_sta(void)
     else if (bits & WIFI_FAIL_BIT)
     {
         const int reason = s_lastReason.load(std::memory_order_relaxed);
-        ESP_LOGE(TAG, "Failed to connect to SSID: %s (last reason %d: %s)", DEFAULT_SSID, reason, reasonName(reason));
+        ESP_LOGE(TAG, "Not connected to SSID: %s yet (last reason %d: %s); the boot goes on and the station keeps retrying",
+                 DEFAULT_SSID, reason, reasonName(reason));
     }
 }

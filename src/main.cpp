@@ -18,6 +18,7 @@
 #include "brokerCreds.h"
 #include "esp_system.h"
 #include "System/chipTemperature.h"
+#include "System/memoryStats.h"
 #include <Core/Config.h>
 #include <Core/Logs.h>
 #include <Core/NightMareCommand.h>
@@ -92,7 +93,10 @@ static NightMareGatewayConfig gatewayConfig()
 
     config.radioReady = wifi_is_started;
     config.ipReady = wifi_is_connected;
-    config.onTick = chipTempTick;
+    config.onTick = []() {
+        chipTempTick();
+        memoryTick();
+    };
     config.onLinkChange = showGatewayLink;
     return config;
 }
@@ -155,12 +159,16 @@ static std::string format(const char *fmt, ...)
 
 static NightMareResults cmdHeap()
 {
-    return answer(true, format("heap free=%lu min=%lu bytes\ninternal free=%lu min=%lu largest=%lu bytes",
-                               (unsigned long)esp_get_free_heap_size(),
-                               (unsigned long)esp_get_minimum_free_heap_size(),
-                               (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-                               (unsigned long)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-                               (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+    const MemoryUsage m = memoryUsage();
+    std::string text = format("internal free=%u/%u bytes (%.1f%%) min=%lu largest=%lu",
+                              m.internalFree, m.internalTotal, m.internalFreePct(),
+                              (unsigned long)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                              (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if (m.psramTotal != 0)
+        text += format("\npsram    free=%u/%u bytes (%.1f%%) min=%lu largest=%lu", m.psramFree, m.psramTotal,
+                       m.psramFreePct(), (unsigned long)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM),
+                       (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+    return answer(true, text);
 }
 
 static NightMareResults cmdTemp()
@@ -291,7 +299,9 @@ extern "C" void app_main(void)
     // binds the Resources when it starts.
     introNightMareESP();
     wifi_init_sta();
-    ntp_sync_start();
+    // Not waited for: the gateway (and with it the ESP-NOW broker the devices
+    // are trying to reach) must not sit behind a clock that needs the router.
+    ntp_sync_start(0);
     // NightMare's serial console takes what its built-ins and the gateway's
     // do not; it installs the console UART driver itself.
     setCommandResolver(resolveAppCommand);
@@ -299,6 +309,7 @@ extern "C" void app_main(void)
     ws2812_init();
     ws2812_set_brightness(STATUS_BRIGHTNESS);
     // Before the gateway starts: it binds the temperature Resource.
+    memoryInit();
     bool tempOk = chipTempInit();
     if (!tempOk)
         ESP_LOGE(TEMPTAG, "Failed to initialize chip temperature sensor");

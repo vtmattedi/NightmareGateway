@@ -39,6 +39,13 @@
 #ifndef NM_GATEWAY_OWN_TASK
 #define NM_GATEWAY_OWN_TASK 1
 #endif
+// Devices reconnecting together (after a gateway reboot they all come back at
+// once) each send a 20+ fragment hardware manifest; a 32-slot queue lost
+// frames. The slots live in PSRAM (260 B each, ~65 KB at 256), so there is no
+// reason to be tight. The MQTT queue holds pointers and also has to hold what
+// ESP-NOW forwards while the broker session is still connecting.
+#define NM_GATEWAY_ESPNOW_RX_QUEUE 256
+#define NM_GATEWAY_MQTT_OUTBOUND_QUEUE 128
 
 // Gateway-owned: Wi-Fi, MQTT, ESP-NOW and SNTP.
 #define NM_ENABLE_NETWORK 0
