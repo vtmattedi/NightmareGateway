@@ -3,11 +3,10 @@
 // NightMare Network features used by the gateway, and the gateway's own
 // (NightmareGateway/GatewayFeatures.h).
 //
-// The gateway is the broker: it owns its Wi-Fi station, its MQTT uplink and the
-// ESP-NOW side, so NightMare's own connectivity stack stays off. What it takes
-// from NightMare is the device plumbing -- identity, persistent Config, the
-// Resource model and the command surface. Its own Resources travel over the
-// gateway's transport, injected in Gateway/GatewayNode (NightMare Network).
+// The gateway is the broker (ESP-NOW side + its own MQTT uplink client) and a
+// NightMare device like any other: its transport is the GATEWAY connection,
+// so status, info, telemetry, Resources, console, jobs, the Wi-Fi station and
+// SNTP all come from NightMare Network.
 
 #define NM_FIRMWARE_VERSION "nightmare-gateway"
 
@@ -22,7 +21,7 @@
 #define NM_ENABLE_CONSOLE 1
 #define NM_CONSOLE_BUILTINS 1
 // NightMare's serial console reads the UART (it installs the console driver);
-// the application adds WIFI, HEAP and TEMP through setCommandResolver().
+// the application adds HEAP and TEMP through setCommandResolver().
 #define NM_CONSOLE_SERIAL 1
 
 #ifndef NM_ENABLE_GATEWAY
@@ -47,18 +46,21 @@
 #define NM_GATEWAY_ESPNOW_RX_QUEUE 256
 #define NM_GATEWAY_MQTT_OUTBOUND_QUEUE 128
 
-// Gateway-owned: Wi-Fi, MQTT, ESP-NOW and SNTP.
-#define NM_ENABLE_NETWORK 0
-#define NM_ENABLE_WIFI 0
+// The device stack on the GATEWAY connection. The library's Wi-Fi station and
+// SNTP run the gateway's Wi-Fi; its MQTT client stays off (the uplink is the
+// gateway's own) and so does the ESP-NOW client (a gateway is not a client).
+#define NM_ENABLE_NETWORK 1
+#define NM_ENABLE_WIFI 1
 #define NM_ENABLE_MQTT 0
 #define NM_NETWORK_ESPNOW 0
-#define NM_ENABLE_TIME_SYNC 0
-// Telemetry publishes through NmConnection, which is off.
-#define NM_ENABLE_TELEMETRY 0
-// Jobs would run on the Scheduler task, and Resources may only be touched from
-// the gateway's tick.
-#define NM_ENABLE_SCHEDULER 0
-#define NM_ENABLE_JOBS 0
+#define NM_ENABLE_TIME_SYNC 1
+#define NM_TIMEZONE "<-03>3"
+#define NM_ENABLE_TELEMETRY 1
+#define NM_ENABLE_SCHEDULER 1
+// Resources may only be touched from the gateway's tick, so jobs run there
+// (MANUAL), not in a task of their own.
+#define NM_SCHEDULER_OWN_TASK 0
+#define NM_ENABLE_JOBS 1
 
 #define NM_ENABLE_OTA 0
 #define NM_ENABLE_HTTP 0

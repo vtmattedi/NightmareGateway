@@ -81,52 +81,38 @@ so local devices do not depend on the broker round trip to communicate.
 
 ## Configuration
 
-Edit:
+Credentials live in `include/creds.h` (untracked):
 
 ```text
-main/gateway_config.h
+DEFAULT_SSID, DEFAULT_PASSWORD     first-boot Wi-Fi profile; NETWORK WIFI CHANGE saves another
+REMOTE_MQTT_URL, REMOTE_MQTT_PORT  the uplink broker (TLS, ROOT_CA), or
+LOCAL_MQTT_HOST, LOCAL_MQTT_PORT   a LAN broker
+MQTT_USER, MQTT_PASSWD             optional
+NM_ESPNOW_PSK                      the ESP-NOW network key, same on every device
 ```
 
-Set:
+Feature selection is `include/NightMareConfig.h`.
 
-```cpp
-WIFI_SSID
-WIFI_PASSWORD
-MQTT_BROKER_URI
-MQTT_USERNAME        // optional
-MQTT_PASSWORD        // optional
-```
+## The gateway as a device
 
-The default subscription is `#` for a transparent v1 bridge.
+Holmes runs the full NightMare device stack on the library's `GATEWAY`
+connection: status, info, telemetry, Resources, console, jobs, the Wi-Fi
+station and SNTP all come from NightMare Network. Its address (topic root,
+MQTT client id and ESP-NOW beacon id) is its hardware signature; `LABEL SET
+<label>` gives it a readable name.
+
+Every gateway publishes the standard `gateway:*` Resources (clients, uplink,
+drop and message counters; enable, ESP-NOW pause, hardware trace), see the
+library's `docs/modules/gateway.md`. The application adds the chip
+temperature and memory sensors, the `HEAP` and `TEMP` console commands, and a
+web dashboard with mDNS (`nightmare-gateway.local`) while the station has an
+address.
 
 ## Build
 
 ```bash
-idf.py set-target esp32s3
-idf.py build
-idf.py -p COMx flash monitor
+pio run -d gateways/Holmes
+pio run -d gateways/Holmes -t upload --upload-port COMx
 ```
 
-ESP-NOW is initialized only after Wi-Fi STA obtains an IP so it shares the AP-selected channel.
-
-## Not in v1
-
-- local MQTT broker
-- web UI
-- database / SD
-- gateway-owned Resource model
-- Arduino framework
-
-## Next paired task
-
-NightMare endpoints need an ESP-NOW transport adapter that can:
-
-```text
-send HELLO
-encode topic + payload + retained
-fragment messages
-reassemble gateway messages
-feed received topic/payload into the normal NightMare ingress path
-```
-
-That adapter should live beside MQTT as another transport, not inside `ResourcesManager`.
+The library is the `include/nightmarenetwork` submodule.

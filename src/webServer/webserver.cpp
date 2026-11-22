@@ -1,5 +1,6 @@
 #include "webserver.h"
-#include "EspWifi/espWifi.h"
+#include <Network/WiFiRadio/NmWifiRadioService.h>
+#include <Network/WiFiIP/NmWifiService.h>
 #include <Gateway/NightMareGateway.h>
 #include <Gateway/EspMqtt/espMqtt.h>
 #include <Gateway/EspNow/espBroker.h>
@@ -45,8 +46,8 @@ static SystemState read_system_state()
 {
 	SystemState state = {};
 	state.gateway_state = NightMareGateway_state();
-	state.wifi_started = wifi_is_started();
-	state.wifi_connected = wifi_is_connected();
+	state.wifi_started = NightMare::WiFiRadio_state() == NightMare::ConnectivityState::READY;
+	state.wifi_connected = NightMare::WiFiIP_state() == NightMare::ConnectivityState::CONNECTED;
 	state.mqtt_connected = mqtt_is_connected();
 	state.beacon_active = espBroker_beaconActive();
 	state.device_count = espBroker_deviceCount();
@@ -150,21 +151,14 @@ static void add_counter(cJSON *object, const char *name, const std::atomic<uint3
 static void add_wifi(cJSON *root)
 {
 	cJSON *wifi = cJSON_AddObjectToObject(root, "wifi");
-	cJSON_AddBoolToObject(wifi, "connected", wifi_is_connected());
-
-	wifi_ap_record_t ap = {};
-	if (wifi_is_connected() && esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
-		cJSON_AddStringToObject(wifi, "ssid", reinterpret_cast<const char *>(ap.ssid));
-		cJSON_AddNumberToObject(wifi, "rssi", ap.rssi);
-		cJSON_AddNumberToObject(wifi, "channel", ap.primary);
-	}
-
-	esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-	esp_netif_ip_info_t ip = {};
-	if (netif != nullptr && esp_netif_get_ip_info(netif, &ip) == ESP_OK && ip.ip.addr != 0) {
-		char text[16];
-		snprintf(text, sizeof(text), IPSTR, IP2STR(&ip.ip));
-		cJSON_AddStringToObject(wifi, "ip", text);
+	const NightMare::WiFiInfo info = WiFi_info();
+	const bool connected = info.state == NightMare::WiFiState::CONNECTED;
+	cJSON_AddBoolToObject(wifi, "connected", connected);
+	if (connected) {
+		cJSON_AddStringToObject(wifi, "ssid", info.ssid.c_str());
+		cJSON_AddNumberToObject(wifi, "rssi", info.rssi);
+		cJSON_AddNumberToObject(wifi, "channel", info.channel);
+		cJSON_AddStringToObject(wifi, "ip", info.ip.c_str());
 	}
 }
 
@@ -179,10 +173,10 @@ static void add_devices(cJSON *root, uint64_t now_ms)
 		cJSON_AddStringToObject(item, "mac", device.mac.c_str());
 		cJSON_AddStringToObject(item, "name", device.name.c_str());
 		cJSON_AddNumberToObject(item, "cid", device.cid);
-		cJSON_AddStringToObject(item, "state", NightMare::connectionStateName(device.state));
+		cJSON_AddStringToObject(item, "state", NightMare::sessionStateName(device.state));
 		// Only a verified AUTH creates a session, so every entry here has authenticated.
 		cJSON_AddBoolToObject(item, "authenticated", true);
-		cJSON_AddBoolToObject(item, "secured", device.state == NightMare::ConnectionState::CONNECTED);
+		cJSON_AddBoolToObject(item, "secured", device.state == NightMare::SessionState::CONNECTED);
 		cJSON_AddBoolToObject(item, "suspended", device.suspended);
 		cJSON_AddNumberToObject(item, "subs", device.subscriptions.size());
 		cJSON *topics = cJSON_AddArrayToObject(item, "topics");

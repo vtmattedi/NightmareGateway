@@ -7,8 +7,10 @@
 #include "esp_heap_caps.h"
 #include "esp_wifi.h"
 #include "LedController/ledController.h"
-#include "EspWifi/espWifi.h"
-#include "TimeSync/timeSync.h"
+#include "EspWifi/espmDNS.h"
+#include "webServer/webserver.h"
+#include "nvs_flash.h"
+#include <Network/NmConnection.h>
 #include <Gateway/NightMareGateway.h>
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
@@ -91,14 +93,33 @@ static NightMareGatewayConfig gatewayConfig()
 #error "Define either REMOTE_MQTT_URL/REMOTE_MQTT_PORT or LOCAL_MQTT_HOST/LOCAL_MQTT_PORT in include/creds.h"
 #endif
 
-    config.radioReady = wifi_is_started;
-    config.ipReady = wifi_is_connected;
+    // Wi-Fi is the library's (NM_ENABLE_WIFI): radioReady/ipReady default to it.
     config.onTick = []() {
         chipTempTick();
         memoryTick();
     };
     config.onLinkChange = showGatewayLink;
     return config;
+}
+
+// The web dashboard and mDNS live as long as the station has an address. Runs
+// on a network task: start and stop only, nothing that blocks for long.
+static void onNetworkStatus(const NightMare::NetworkStatusEvent &event)
+{
+    if (event.layer != NightMare::NetworkLayer::WIFI_IP)
+        return;
+    if (event.up)
+    {
+        NightmareGateway::mDNS::begin("nightmare-gateway");
+        const esp_err_t err = web_server::start();
+        if (err != ESP_OK)
+            ESP_LOGE("main", "Failed to start web server: %s", esp_err_to_name(err));
+    }
+    else if (event.previous == NightMare::ConnectivityState::CONNECTED)
+    {
+        web_server::stop();
+        NightmareGateway::mDNS::end();
+    }
 }
 
 void initSequence()
@@ -128,8 +149,6 @@ static const gpio_num_t BLINK_GPIO2 = GPIO_NUM_15;
 // REBOOT, > resources). What only this application has is answered here, for
 // any command the built-ins do not take:
 //
-//   WIFI SCAN                     networks in range, strongest first
-//   WIFI CONNECT <ssid> [pass]    join another network (not saved)
 //   HEAP                          free / minimum / largest free block
 //   TEMP                          chip temperature now
 //
@@ -179,106 +198,14 @@ static NightMareResults cmdTemp()
     return answer(true, format("chip temperature %.1f C", tempC));
 }
 
-static const char *authModeName(wifi_auth_mode_t mode)
-{
-    switch (mode)
-    {
-    case WIFI_AUTH_OPEN:
-        return "open";
-    case WIFI_AUTH_WEP:
-        return "WEP";
-    case WIFI_AUTH_WPA_PSK:
-        return "WPA";
-    case WIFI_AUTH_WPA2_PSK:
-        return "WPA2";
-    case WIFI_AUTH_WPA_WPA2_PSK:
-        return "WPA/WPA2";
-    case WIFI_AUTH_WPA2_ENTERPRISE:
-        return "WPA2-ent";
-    case WIFI_AUTH_WPA3_PSK:
-        return "WPA3";
-    case WIFI_AUTH_WPA2_WPA3_PSK:
-        return "WPA2/WPA3";
-    case WIFI_AUTH_OWE:
-        return "OWE";
-    default:
-        return "other";
-    }
-}
-
-// [=======   ] for -55 dBm: full at -50 and better, empty at -100.
-static std::string signalBar(int rssi)
-{
-    const int width = 10;
-    int quality = (rssi + 100) * 2;
-    quality = quality < 0 ? 0 : quality > 100 ? 100
-                                              : quality;
-    const int filled = (quality * width + 50) / 100;
-    std::string bar = "[";
-    for (int i = 0; i < width; i++)
-        bar += i < filled ? '=' : ' ';
-    return bar + "]";
-}
-
-// Blocks for the scan (about 2 s), on whichever task runs the console; ESP-NOW
-// pauses for it either way.
-static NightMareResults wifiScan()
-{
-    std::vector<wifi_ap_record_t> networks;
-    const esp_err_t err = wifi_scan(networks);
-    if (err != ESP_OK)
-        return answer(false, format("Scan failed: %s", esp_err_to_name(err)));
-    std::sort(networks.begin(), networks.end(),
-              [](const wifi_ap_record_t &a, const wifi_ap_record_t &b)
-              { return a.rssi > b.rssi; });
-
-    wifi_ap_record_t current = {};
-    const bool haveCurrent = wifi_is_connected() && esp_wifi_sta_get_ap_info(&current) == ESP_OK;
-
-    std::string table = format(" %2s  %-12s  %8s  %3s  %-9s  %s\n", "#", "Signal", "dBm", "Ch", "Security", "SSID");
-    table += " --  ------------  --------  ---  ---------  ------------------------\n";
-    int index = 1;
-    for (const wifi_ap_record_t &ap : networks)
-    {
-        const bool joined = haveCurrent && memcmp(ap.bssid, current.bssid, sizeof(ap.bssid)) == 0;
-        const char *ssid = ap.ssid[0] != '\0' ? (const char *)ap.ssid : "<hidden>";
-        table += format(" %2d  %s  %4d dBm  %3u  %-9s  %s%s\n", index++, signalBar(ap.rssi).c_str(), ap.rssi,
-                        (unsigned)ap.primary, authModeName(ap.authmode), ssid, joined ? "   <- connected" : "");
-    }
-    table += format("%u network(s) found", (unsigned)networks.size());
-    return answer(true, table);
-}
-
-// args[1] and args[2] keep their case; quote values with spaces.
-static NightMareResults wifiConnect(const NightMareMessage &message)
-{
-    if (message.argc < 2 || message.argc > 3)
-        return answer(false, "usage: WIFI CONNECT <ssid> [password]   (quote values with spaces)");
-    const std::string &ssid = message.args[1];
-    const std::string password = message.argc == 3 ? message.args[2] : std::string();
-    const esp_err_t err = wifi_connect(ssid.c_str(), password.c_str());
-    if (err == ESP_ERR_INVALID_ARG)
-        return answer(false, "Invalid ssid (1-32 chars) or password (empty for open, else 8-63 chars)");
-    if (err != ESP_OK)
-        return answer(false, format("Could not start connecting: %s", esp_err_to_name(err)));
-    return answer(true, format("Connecting to \"%s\"%s - the log shows the result", ssid.c_str(),
-                               password.empty() ? " (open network)" : ""));
-}
-
 static NightMareResults resolveAppCommand(const NightMareMessage &message)
 {
-    if (message.command == "WIFI" && message.subcommand == "SCAN")
-        return wifiScan();
-    if (message.command == "WIFI" && message.subcommand == "CONNECT")
-        return wifiConnect(message);
-    if (message.command == "WIFI")
-        return answer(false, "usage: WIFI SCAN | WIFI CONNECT <ssid> [password]");
     if (message.command == "HEAP")
         return cmdHeap();
     if (message.command == "TEMP")
         return cmdTemp();
     return answer(false, "Unknown command: " + message.command +
-                             " (app: WIFI, HEAP, TEMP; gateway: GATEWAY GET; framework: CONFIG LIST, TIME, PING)");
+                             " (app: HEAP, TEMP; gateway: GATEWAY GET; framework: NETWORK WIFI SCAN, CONFIG LIST, TIME, PING)");
 }
 
 static const char *TEMPTAG = "chip_temp";
@@ -297,11 +224,17 @@ extern "C" void app_main(void)
 
     // Identity and persisted Configs, before anything reads them; the gateway
     // binds the Resources when it starts.
+    // The Wi-Fi driver keeps its calibration and settings in NVS.
+    esp_err_t nvs = nvs_flash_init();
+    if (nvs == ESP_ERR_NVS_NO_FREE_PAGES || nvs == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
     introNightMareESP();
-    wifi_init_sta();
-    // Not waited for: the gateway (and with it the ESP-NOW broker the devices
-    // are trying to reach) must not sit behind a clock that needs the router.
-    ntp_sync_start(0);
+    // The library starts the radio, the station (saved profile, else creds.h)
+    // and SNTP from the gateway task; the dashboard follows the IP link.
+    NightMare::OnNetworkStatus(onNetworkStatus);
     // NightMare's serial console takes what its built-ins and the gateway's
     // do not; it installs the console UART driver itself.
     setCommandResolver(resolveAppCommand);
