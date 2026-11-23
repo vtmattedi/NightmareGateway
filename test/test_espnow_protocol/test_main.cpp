@@ -11,16 +11,18 @@
 #include <unity.h>
 #include <string.h>
 
-// The units under test, compiled straight in: the test build does not link src/.
-#include "../../include/nightmarenetwork/src/Network/EspNow/NightMareEspNow/Frame.cpp"
-#include "../../include/nightmarenetwork/src/Network/EspNow/NightMareEspNow/Auth.cpp"
-#include "../../include/nightmarenetwork/src/Network/EspNow/NightMareEspNow/macAddress.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/Broker/Topic.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/Broker/Message.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/Broker/Device.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/EspNow/espDeviceManager.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/EspNow/Reassembly.cpp"
-#include "../../include/nightmarenetwork/src/Gateway/GatewayRecovery.cpp"
+// The units under test come from the nightmarenetwork library the project links
+// (lib_deps symlink); only its headers are included here. Compiling the .cpp
+// files in as well duplicates every symbol at link time.
+#include <Network/EspNow/NightMareEspNow/Frame.h>
+#include <Network/EspNow/NightMareEspNow/Auth.h>
+#include <Network/EspNow/NightMareEspNow/macAddress.h>
+#include <Gateway/Broker/Topic.h>
+#include <Gateway/Broker/Message.h>
+#include <Gateway/Broker/Device.h>
+#include <Gateway/EspNow/espDeviceManager.h>
+#include <Gateway/EspNow/Reassembly.h>
+#include <Gateway/GatewayRecovery.h>
 
 using namespace NightMare;
 namespace A = NightMare::EspNowAuth;
@@ -44,7 +46,7 @@ static A::HandshakeContext vectorContext()
 
 // Raw packet: header fields as given, `length` data bytes of 0xAA.
 static size_t packet(uint8_t *out, uint8_t type, uint16_t cid, uint16_t length,
-                     uint8_t version = CurrentFrameVersion, uint8_t index = 0, uint8_t total = 1)
+                     uint8_t version = currentFrameVersion(), uint8_t index = 0, uint8_t total = 1)
 {
     FrameHeader h{};
     h.messageId = 7;
@@ -59,7 +61,7 @@ static size_t packet(uint8_t *out, uint8_t type, uint16_t cid, uint16_t length,
     return sizeof(h) + length;
 }
 
-static FrameCheck check(uint8_t type, uint16_t cid, uint16_t length, uint8_t version = CurrentFrameVersion,
+static FrameCheck check(uint8_t type, uint16_t cid, uint16_t length, uint8_t version = currentFrameVersion(),
                         uint8_t index = 0, uint8_t total = 1)
 {
     uint8_t buffer[MaxPacketSizeV1];
@@ -70,7 +72,7 @@ static FrameCheck check(uint8_t type, uint16_t cid, uint16_t length, uint8_t ver
 static FrameHeader header(FrameType type, uint16_t cid)
 {
     FrameHeader h{};
-    h.version = CurrentFrameVersion;
+    h.version = currentFrameVersion();
     h.type = (uint8_t)type;
     h.cid = cid;
     h.totalFrames = 1;
@@ -118,12 +120,12 @@ static Device *connect(espDeviceManager &m, const MacAddress &who, uint64_t now 
 {
     uint8_t lmk[16];
     memset(lmk, keyByte, sizeof(lmk));
-    if (m.beginHandshake(who, 1, 0, 2, now) == nullptr)
+    if (m.beginHandshake(who, who, 1, 0, 2, now) == nullptr)
         return nullptr;
     Device *d = m.completeHandshake(who, now);
     if (d == nullptr || !m.secureSession(*d, lmk))
         return nullptr;
-    d->setState(ConnectionState::CONNECTED);
+    d->setState(SessionState::CONNECTED);
     return d;
 }
 
@@ -153,14 +155,14 @@ static void test_version_nibbles(void)
     TEST_ASSERT_EQUAL(0, espNowVersion(makeVersion((uint8_t)EspNowFrameVersion::V1, 0)));
     TEST_ASSERT_EQUAL(1, espNowVersion(makeVersion((uint8_t)EspNowFrameVersion::V2, 0)));
     TEST_ASSERT_EQUAL(0, NM_PROTOCOL_VERSION);
-    TEST_ASSERT_EQUAL_HEX8(0x00, CurrentFrameVersion);
+    TEST_ASSERT_EQUAL_HEX8(0x00, currentFrameVersion());
 }
 
 static void test_valid_frames_pass(void)
 {
     TEST_ASSERT_EQUAL(FrameCheck::OK, check((uint8_t)FrameType::CONNECT, 0, sizeof(ConnectPayload)));
     TEST_ASSERT_EQUAL(FrameCheck::OK, check((uint8_t)FrameType::CONNACK, 5, sizeof(ConnAckPayload)));
-    TEST_ASSERT_EQUAL(FrameCheck::OK, check((uint8_t)FrameType::MESSAGE, 5, 240, CurrentFrameVersion, 3, 16));
+    TEST_ASSERT_EQUAL(FrameCheck::OK, check((uint8_t)FrameType::MESSAGE, 5, 240, currentFrameVersion(), 3, 16));
     TEST_ASSERT_EQUAL(FrameCheck::OK, check((uint8_t)FrameType::ERROR, 0, 1));
 
     Frame f{};
@@ -182,13 +184,13 @@ static void test_malformed_length_rejected(void)
 static void test_fragment_rules(void)
 {
     const uint8_t msg = (uint8_t)FrameType::MESSAGE;
-    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, CurrentFrameVersion, 0, 0));
-    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, CurrentFrameVersion, 2, 2));
+    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, currentFrameVersion(), 0, 0));
+    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, currentFrameVersion(), 2, 2));
     // No cap below what the header can express.
-    TEST_ASSERT_EQUAL(FrameCheck::OK, check(msg, 5, 1, CurrentFrameVersion, 254, 255));
-    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, CurrentFrameVersion, 255, 255));
+    TEST_ASSERT_EQUAL(FrameCheck::OK, check(msg, 5, 1, currentFrameVersion(), 254, 255));
+    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check(msg, 5, 1, currentFrameVersion(), 255, 255));
     // Only MESSAGE may be fragmented.
-    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check((uint8_t)FrameType::SUBSCRIBE, 5, 1, CurrentFrameVersion, 0, 2));
+    TEST_ASSERT_EQUAL(FrameCheck::BAD_FRAGMENT, check((uint8_t)FrameType::SUBSCRIBE, 5, 1, currentFrameVersion(), 0, 2));
 }
 
 static void test_versions_rejected(void)
@@ -244,6 +246,49 @@ static void test_known_answer_vectors(void)
     TEST_ASSERT_TRUE(A::sessionLmk(PSK, PSK_LEN, c, lmk));
     TEST_ASSERT_EQUAL_HEX8_ARRAY(authExpected, proof, 16);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(lmkExpected, lmk, 16);
+}
+
+// Protocol 1 (namespaced) known answers, the same constants as the library's
+// tests/vectors/espnow_vectors.py (key "NM-TEST-KEY-0123456789ABCDEF-xyz",
+// namespace "home"). The protocol 0 vectors above are unchanged.
+static void test_namespaced_vectors(void)
+{
+    static const char key[] = "NM-TEST-KEY-0123456789ABCDEF-xyz";
+    const size_t keyLen = sizeof(key) - 1;
+    const uint8_t homeProof[16] = {0x46, 0x4B, 0xBC, 0x8B, 0x2A, 0xF2, 0x2D, 0x60, 0x93, 0x65, 0x71, 0x5C, 0x33, 0x4E, 0x56, 0x6F};
+    const uint8_t homeLmk[16] = {0x3A, 0x34, 0xBD, 0x7D, 0x4A, 0x39, 0x03, 0xA8, 0xF0, 0x27, 0x41, 0xB4, 0x30, 0x35, 0x2F, 0xBA};
+    const uint8_t homePmk[16] = {0x11, 0xF5, 0xD6, 0xE6, 0x58, 0x21, 0x73, 0x7A, 0xCC, 0x2E, 0xFD, 0xB7, 0x43, 0x5C, 0x0D, 0xAA};
+    A::HandshakeContext c{};
+    const uint8_t client[6] = {0x24, 0x6F, 0x28, 0xAA, 0xBB, 0x01};
+    const uint8_t gateway[6] = {0x24, 0x6F, 0x28, 0xCC, 0xDD, 0x02};
+    memcpy(c.clientMac, client, 6);
+    memcpy(c.gatewayMac, gateway, 6);
+    c.clientNonce = 0x1122334455667788ULL;
+    c.gatewayNonce = 0x99AABBCCDDEEFF00ULL;
+    TEST_ASSERT_TRUE(A::setNamespace(c, "home", 4));
+    uint8_t out[16];
+    TEST_ASSERT_TRUE(A::authProof((const uint8_t *)key, keyLen, c, out));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(homeProof, out, 16);
+    TEST_ASSERT_TRUE(A::sessionLmk((const uint8_t *)key, keyLen, c, out));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(homeLmk, out, 16);
+    TEST_ASSERT_TRUE(A::networkPmk((const uint8_t *)key, keyLen, "home", 4, out));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(homePmk, out, 16);
+    TEST_ASSERT_EQUAL_HEX32(0x5840A14EU, A::namespaceTag("home", 4));
+    TEST_ASSERT_EQUAL_HEX32(0U, A::namespaceTag("", 0));
+}
+
+// A node speaks one protocol version; the version byte follows it, and frames
+// of the other version are refused. Restores the default (0) afterwards.
+static void test_active_protocol_version(void)
+{
+    TEST_ASSERT_EQUAL_HEX8(0x00, currentFrameVersion());
+    TEST_ASSERT_TRUE(setActiveProtocolVersion(NM_PROTOCOL_VERSION_NS));
+    TEST_ASSERT_EQUAL_HEX8(0x01, currentFrameVersion());
+    TEST_ASSERT_EQUAL(FrameCheck::UNSUPPORTED_PROTOCOL, check((uint8_t)FrameType::PING, 5, 0, 0x00));
+    TEST_ASSERT_FALSE(setActiveProtocolVersion(2));
+    TEST_ASSERT_EQUAL(NM_PROTOCOL_VERSION_NS, activeProtocolVersion());
+    TEST_ASSERT_TRUE(setActiveProtocolVersion(NM_PROTOCOL_VERSION));
+    TEST_ASSERT_EQUAL_HEX8(0x00, currentFrameVersion());
 }
 
 static void test_proof_and_lmk_differ(void)
@@ -345,27 +390,27 @@ static void test_unknown_sender_creates_nothing(void)
     espDeviceManager m = manager();
     for (FrameType t : {FrameType::MESSAGE, FrameType::SUBSCRIBE, FrameType::UNSUBSCRIBE, FrameType::LAST_WILL,
                         FrameType::PING, FrameType::PONG, FrameType::ACK, FrameType::DISCONNECT, FrameType::AUTH})
-        TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(t, t == FrameType::AUTH ? 0 : 5)).verdict);
+        TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(t, t == FrameType::AUTH ? 0 : 5)).verdict);
     TEST_ASSERT_EQUAL(0, m.getDeviceCount());
     TEST_ASSERT_EQUAL(0, m.pendingCount());
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::HANDSHAKE, m.admit(mac(1), header(FrameType::CONNECT, 0)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::HANDSHAKE, m.admit(mac(1), mac(1), header(FrameType::CONNECT, 0)).verdict);
 }
 
 static void test_cid_only_after_auth(void)
 {
     espDeviceManager m = manager();
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), 11, 0, 22, 0));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), mac(1), 11, 0, 22, 0));
     TEST_ASSERT_EQUAL(0, m.getDeviceCount());
     TEST_ASSERT_EQUAL(1, m.pendingCount());
     TEST_ASSERT_EQUAL(1, s_peersAdded);
     // Pending: AUTH is admitted, normal traffic is not.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::HANDSHAKE, m.admit(mac(1), header(FrameType::AUTH, 0)).verdict);
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(FrameType::MESSAGE, 1)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::HANDSHAKE, m.admit(mac(1), mac(1), header(FrameType::AUTH, 0)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(FrameType::MESSAGE, 1)).verdict);
 
     Device *d = m.completeHandshake(mac(1), 0);
     TEST_ASSERT_NOT_NULL(d);
     TEST_ASSERT_NOT_EQUAL(0, d->cid());
-    TEST_ASSERT_EQUAL(ConnectionState::AUTHENTICATED, d->state());
+    TEST_ASSERT_EQUAL(SessionState::AUTHENTICATED, d->state());
     TEST_ASSERT_EQUAL(0, m.pendingCount());
     TEST_ASSERT_NULL(m.pendingFor(mac(1)));
 }
@@ -374,24 +419,24 @@ static void test_securing_gate(void)
 {
     espDeviceManager m = manager();
     const uint8_t lmk[16] = {9, 8, 7};
-    m.beginHandshake(mac(1), 1, 0, 2, 0);
+    m.beginHandshake(mac(1), mac(1), 1, 0, 2, 0);
     Device *d = m.completeHandshake(mac(1), 0);
     TEST_ASSERT_TRUE(m.secureSession(*d, lmk));
-    TEST_ASSERT_EQUAL(ConnectionState::SECURING, d->state());
+    TEST_ASSERT_EQUAL(SessionState::SECURING, d->state());
     TEST_ASSERT_EQUAL(1, s_peersSecured);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(lmk, s_lastLmk, 16);
 
     const uint16_t cid = d->cid();
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::SESSION, m.admit(mac(1), header(FrameType::PING, cid)).verdict);
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::NOT_CONNECTED, m.admit(mac(1), header(FrameType::MESSAGE, cid)).verdict);
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::NOT_CONNECTED, m.admit(mac(1), header(FrameType::SUBSCRIBE, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::SESSION, m.admit(mac(1), mac(1), header(FrameType::PING, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::NOT_CONNECTED, m.admit(mac(1), mac(1), header(FrameType::MESSAGE, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::NOT_CONNECTED, m.admit(mac(1), mac(1), header(FrameType::SUBSCRIBE, cid)).verdict);
 }
 
 static void test_failed_encryption_is_not_connected(void)
 {
     espDeviceManager m = manager();
     const uint8_t lmk[16] = {1};
-    m.beginHandshake(mac(1), 1, 0, 2, 0);
+    m.beginHandshake(mac(1), mac(1), 1, 0, 2, 0);
     Device *d = m.completeHandshake(mac(1), 0);
     s_secureFails = true;
     TEST_ASSERT_FALSE(m.secureSession(*d, lmk));
@@ -406,15 +451,15 @@ static void test_connected_mac_and_cid(void)
     TEST_ASSERT_NOT_NULL(d);
     const uint16_t cid = d->cid();
 
-    espDeviceManager::Admission ok = m.admit(mac(1), header(FrameType::MESSAGE, cid));
+    espDeviceManager::Admission ok = m.admit(mac(1), mac(1), header(FrameType::MESSAGE, cid));
     TEST_ASSERT_EQUAL(espDeviceManager::Verdict::SESSION, ok.verdict);
     TEST_ASSERT_EQUAL_PTR(d, ok.device);
     // Right MAC, stale cid.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::INVALID_SESSION, m.admit(mac(1), header(FrameType::MESSAGE, cid + 1)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::INVALID_SESSION, m.admit(mac(1), mac(1), header(FrameType::MESSAGE, cid + 1)).verdict);
     // Valid cid, wrong MAC.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(2), header(FrameType::MESSAGE, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(2), mac(2), header(FrameType::MESSAGE, cid)).verdict);
     // Handshake-only types are never session traffic.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(FrameType::CONNACK, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(FrameType::CONNACK, cid)).verdict);
 }
 
 static void test_live_authenticated_name_wins_over_retained_status(void)
@@ -435,7 +480,7 @@ static void test_connect_only_suspends_the_session(void)
     const uint16_t cid = d->cid();
     d->subscribeTo("a/#");
 
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), 3, 0, 4, 10));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), mac(1), 3, 0, 4, 10));
     Device *same = m.sessionFor(mac(1));
     TEST_ASSERT_NOT_NULL(same);              // still there
     TEST_ASSERT_EQUAL(cid, same->cid());     // same session
@@ -448,8 +493,8 @@ static void test_connect_only_suspends_the_session(void)
     // device tear down a session it is about to get back.
     TEST_ASSERT_FALSE(same->isConnected());
     TEST_ASSERT_EQUAL(0, m.getSubscriberCount());
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(FrameType::MESSAGE, cid)).verdict);
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(FrameType::PING, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(FrameType::MESSAGE, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(FrameType::PING, cid)).verdict);
 }
 
 static void test_unproven_handshake_restores_the_session(void)
@@ -460,7 +505,7 @@ static void test_unproven_handshake_restores_the_session(void)
     d->subscribeTo("a/#");
     const int securedBefore = s_peersSecured;
 
-    m.beginHandshake(mac(1), 3, 0, 4, 10);
+    m.beginHandshake(mac(1), mac(1), 3, 0, 4, 10);
     m.abandonHandshake(mac(1)); // AUTH failed, or never came
 
     Device *same = m.sessionFor(mac(1));
@@ -477,14 +522,14 @@ static void test_unproven_handshake_restores_the_session(void)
     memset(expected, 0xAB, sizeof(expected));
     TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, s_lastLmk, 16);
     // And it works again.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::SESSION, m.admit(mac(1), header(FrameType::MESSAGE, cid)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::SESSION, m.admit(mac(1), mac(1), header(FrameType::MESSAGE, cid)).verdict);
 }
 
 static void test_handshake_timeout_restores_the_session(void)
 {
     espDeviceManager m = manager();
     const uint16_t cid = connect(m, mac(1))->cid();
-    m.beginHandshake(mac(1), 3, 0, 4, 1000);
+    m.beginHandshake(mac(1), mac(1), 3, 0, 4, 1000);
     TEST_ASSERT_TRUE(m.sessionFor(mac(1))->isSuspended());
 
     m.expire(1001 + espDeviceManager::HandshakeTimeoutMs, onLost);
@@ -502,7 +547,7 @@ static void test_suspended_session_does_not_time_out(void)
 {
     espDeviceManager m = manager();
     connect(m, mac(1), 0);
-    m.beginHandshake(mac(1), 3, 0, 4, 0);
+    m.beginHandshake(mac(1), mac(1), 3, 0, 4, 0);
     m.expire(60001, onLost);
     TEST_ASSERT_EQUAL(1, m.getDeviceCount());
     TEST_ASSERT_EQUAL(0, s_lost);
@@ -519,7 +564,7 @@ static void test_verified_auth_replaces_the_session(void)
     will.topic = "dev/status";
     d->setLastWill(will);
 
-    m.beginHandshake(mac(1), 3, 0, 4, 10);
+    m.beginHandshake(mac(1), mac(1), 3, 0, 4, 10);
     Device *fresh = m.completeHandshake(mac(1), 10);
     TEST_ASSERT_NOT_NULL(fresh);
     TEST_ASSERT_NOT_EQUAL(first, fresh->cid());
@@ -530,7 +575,7 @@ static void test_verified_auth_replaces_the_session(void)
     TEST_ASSERT_EQUAL(0, s_peersRemoved);           // the peer carries over
     // The old cid is finished with.
     TEST_ASSERT_EQUAL(espDeviceManager::Verdict::INVALID_SESSION,
-                      m.admit(mac(1), header(FrameType::MESSAGE, first)).verdict);
+                      m.admit(mac(1), mac(1), header(FrameType::MESSAGE, first)).verdict);
 }
 
 // Replacing takes no new room, so a device can always reconnect.
@@ -542,11 +587,11 @@ static void test_replacement_works_with_a_full_table(void)
     TEST_ASSERT_EQUAL(espDeviceManager::MaxDevices, m.getDeviceCount());
 
     // A newcomer is refused...
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(99), 1, 0, 1, 10));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(99), mac(99), 1, 0, 1, 10));
     TEST_ASSERT_NULL(m.completeHandshake(mac(99), 10));
     // ...but one of the sixteen can still come back.
     const uint16_t old = m.sessionFor(mac(3))->cid();
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(3), 1, 0, 1, 20));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(3), mac(3), 1, 0, 1, 20));
     Device *fresh = m.completeHandshake(mac(3), 20);
     TEST_ASSERT_NOT_NULL(fresh);
     TEST_ASSERT_NOT_EQUAL(old, fresh->cid());
@@ -561,8 +606,8 @@ static void test_gateway_reboot_invalidates_cids(void)
         old = connect(before, mac(1))->cid();
     }
     espDeviceManager after = manager(); // a fresh table, as after a reboot
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, after.admit(mac(1), header(FrameType::MESSAGE, old)).verdict);
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, after.admit(mac(1), header(FrameType::PING, old)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, after.admit(mac(1), mac(1), header(FrameType::MESSAGE, old)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, after.admit(mac(1), mac(1), header(FrameType::PING, old)).verdict);
 }
 
 static void test_cids_unique_nonzero_and_wrap(void)
@@ -579,34 +624,34 @@ static void test_cids_unique_nonzero_and_wrap(void)
 static void test_pending_timeout_frees_state(void)
 {
     espDeviceManager m = manager();
-    m.beginHandshake(mac(1), 1, 0, 2, 1000);
+    m.beginHandshake(mac(1), mac(1), 1, 0, 2, 1000);
     m.expire(1000 + espDeviceManager::HandshakeTimeoutMs, onLost);
     TEST_ASSERT_EQUAL(1, m.pendingCount());
     m.expire(1001 + espDeviceManager::HandshakeTimeoutMs, onLost);
     TEST_ASSERT_EQUAL(0, m.pendingCount());
     TEST_ASSERT_EQUAL(1, s_peersRemoved);
     // An expired challenge can no longer be answered.
-    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), header(FrameType::AUTH, 0)).verdict);
+    TEST_ASSERT_EQUAL(espDeviceManager::Verdict::IGNORE, m.admit(mac(1), mac(1), header(FrameType::AUTH, 0)).verdict);
 }
 
 static void test_pending_table_is_bounded(void)
 {
     espDeviceManager m = manager();
     for (uint8_t i = 1; i <= espDeviceManager::MaxPending; i++)
-        TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(i), i, 0, i, 0));
-    TEST_ASSERT_NULL(m.beginHandshake(mac(99), 1, 0, 1, 0));
+        TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(i), mac(i), i, 0, i, 0));
+    TEST_ASSERT_NULL(m.beginHandshake(mac(99), mac(99), 1, 0, 1, 0));
     // A repeated CONNECT reuses its own slot rather than growing the table.
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), 5, 0, 6, 0));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(1), mac(1), 5, 0, 6, 0));
     TEST_ASSERT_EQUAL(espDeviceManager::MaxPending, m.pendingCount());
     // Once one is stale, a newcomer takes its slot.
-    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(99), 1, 0, 1, espDeviceManager::HandshakeTimeoutMs + 1));
+    TEST_ASSERT_NOT_NULL(m.beginHandshake(mac(99), mac(99), 1, 0, 1, espDeviceManager::HandshakeTimeoutMs + 1));
 }
 
 static void test_stuck_securing_ends_without_will(void)
 {
     espDeviceManager m = manager();
     const uint8_t lmk[16] = {1};
-    m.beginHandshake(mac(1), 1, 0, 2, 0);
+    m.beginHandshake(mac(1), mac(1), 1, 0, 2, 0);
     Device *d = m.completeHandshake(mac(1), 0);
     Message will;
     will.topic = "dev/status";
@@ -637,7 +682,7 @@ static void test_subscribers_count_connected_only(void)
     Device *d = connect(m, mac(1));
     d->subscribeTo("a/#");
     TEST_ASSERT_EQUAL(1, m.getSubscriberCount());
-    d->setState(ConnectionState::SECURING);
+    d->setState(SessionState::SECURING);
     TEST_ASSERT_EQUAL(0, m.getSubscriberCount());
 }
 
@@ -796,6 +841,8 @@ extern "C" void app_main(void)
     RUN_TEST(test_fixed_payload_sizes);
     RUN_TEST(test_beacon);
     RUN_TEST(test_known_answer_vectors);
+    RUN_TEST(test_namespaced_vectors);
+    RUN_TEST(test_active_protocol_version);
     RUN_TEST(test_proof_and_lmk_differ);
     RUN_TEST(test_every_input_changes_the_result);
     RUN_TEST(test_auth_rejections);
